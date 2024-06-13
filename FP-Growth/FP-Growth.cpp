@@ -4,12 +4,18 @@
 #include <math.h>
 #include <vector>
 #include <cstring>
-#include <sstream>  
+#include <sstream>
 #include <algorithm>
 #include <set>
 #include <iomanip>
 using namespace std;
-
+// int totalNum;
+int itemSupport[1005];
+int headerPos[1005];
+double supportNum;
+int numOfItemSet = 0;
+// set<vector<int> > freqItemSet;
+vector<pair<vector<int>, double> > freqItemSet;
 struct TreeNode{
 public:
     int count;
@@ -28,61 +34,58 @@ struct headNode{
     vector<TreeNode*> next;
 };
 
-// float minSupport=0;
-int totalNum=0;
-int itemSupport[1000];
-int headerPos[1000];
-vector<pair<vector<int>, int> > outputData;
-double supportNum;
-int numOfItemSet = 0;
-set<vector<int> > freqItemSet;
-
 bool compare(const int a, const int b)
 {
-    return itemSupport[a] > itemSupport[b];
+    if(itemSupport[a] != itemSupport[b])    return itemSupport[a] > itemSupport[b];
+    else return a < b;
 }
 
-void readFile( vector<vector<int> >& transcation, char* argv[], vector<headNode*>& headerTable)
+void parseLine(string line, vector<int> &data){
+    string temp = "";
+    for(int i=0;i<line.length();i++){
+        if(line[i] ==','){
+            data.push_back(atoi(temp.c_str()));
+            itemSupport[atoi(temp.c_str())]++;
+            temp = "";
+        }
+        else temp += line[i];
+    }
+    data.push_back(atoi(temp.c_str()));
+    itemSupport[atoi(temp.c_str())]++;
+}
+void readFile( vector<vector<int> >& transaction, char* argv[], vector<headNode*>& headerTable)
 {
-    // 檢查命令列參數數量
-    float c;
-    // 解析浮點數參數
-    istringstream scale_str(argv[1]);
-    scale_str>>c;
-    // double scale;
-    // if (!(scale_str >> scale)) {
-    //     cout << "min support: " << argv[1] << endl;
-    //     return 1;
-    // }
-
-    // 打開輸入文件
+    float c = stod(argv[1]);
+    int zero = 0;
     ifstream inputFile(argv[2]);
     // if (!inputFile) {
     //     cerr << "Unable to open input file: " << argv[2] << '\n';
     //     return 1;
     // }
 
-    // 讀取輸入文件，每次處理一行
     string line;
     while (getline(inputFile, line)) {
         vector<int> data;
-        istringstream line_stream(line);
+        // parseLine(line, data);
+        stringstream line_stream(line);
         string num;
         while (getline(line_stream, num, ',')) {
             // outputFile << num << " , ";
             data.push_back(atoi(num.c_str()));
             itemSupport[atoi(num.c_str())]++;
         }
-        totalNum++;
-        transcation.push_back(data);
-        // outputFile << '\n';
+        transaction.push_back(data);
+
     }
     inputFile.close();
 
-    supportNum = totalNum*c;
+    // cout<<"ratio = "<<c<<endl;
+    // cout<<"transaction size = "<<transaction.size()<<endl;
+    int totalNum = transaction.size();
+    // cout<<"total = "<<totalNum<<endl;
+    supportNum = totalNum * c;
     cout<<"supportNum: "<<supportNum<<endl;
-    vector<pair<int, int> > itemToFreq;
-    for(int i=0; i<1000; i++){
+    for(int i=0; i<1005; i++){
         if(itemSupport[i] >= supportNum){
             headNode* node = new headNode();
             node->itemToFreq = make_pair(i, itemSupport[i]);
@@ -167,8 +170,8 @@ void FP_Growth(vector<headNode*>& headerTable, vector<int> freqSet){
         vector<pair<vector<int>, int> > condPatternBase; //(conditional pattern, frequncy)
         vector<headNode*> condHeaderTable;
         vector<int> data;
-        memset(itemSupport, 0, 1000 * sizeof(itemSupport[0]));
-        memset(headerPos, -1, 1000 * sizeof(headerPos[0]));
+        memset(itemSupport, 0, sizeof(itemSupport));
+        memset(headerPos, -1, sizeof(headerPos));
         for(int j=0; j<headerTable[i]->next.size(); j++){//找所有和該header table的item一樣的item
             // cout<<"headerTable["<<i<<"]->next["<<j<<"]->id: "<<headerTable[i]->next[j]->id<<endl;
             vector<int> tmp;
@@ -177,11 +180,11 @@ void FP_Growth(vector<headNode*>& headerTable, vector<int> freqSet){
             sort(condPattern.begin(), condPattern.end());
             condPatternBase.push_back(make_pair(condPattern, headerTable[i]->next[j]->count));
             for(auto pattern: condPattern){
-                itemSupport[pattern] += headerTable[i]->next[j]->count;//重新計算每個item的support
+                itemSupport[pattern] += headerTable[i]->next[j]->count;//recompute each item support
                 data.push_back(pattern);
             }
         }
-        sort(data.begin(), data.end());//排序後才再透過unique刪除重複的
+        sort(data.begin(), data.end());//delete duplicate item after sorting
         data.erase(unique(data.begin(), data.end()), data.end());
         sort(data.begin(), data.end(), compare);
         int ind = 0;
@@ -211,49 +214,72 @@ void FP_Growth(vector<headNode*>& headerTable, vector<int> freqSet){
         vector<int> newFreqSet = freqSet;
         newFreqSet.push_back(headerTable[i]->itemToFreq.first);
         sort(newFreqSet.begin(), newFreqSet.end());
+        if(freqSet.empty()){
+            freqItemSet.push_back(make_pair(newFreqSet, headerTable[i]->itemToFreq.second));
+        }
 
-        if(newFreqSet.size() > numOfItemSet)  numOfItemSet = newFreqSet.size();
-        freqItemSet.insert(newFreqSet);
+        // freqItemSet.insert(newFreqSet);
         for(auto item:data){
             vector<int> tmp = newFreqSet;
             tmp.push_back(item);
             sort(tmp.begin(), tmp.end());
-            if(tmp.size() > numOfItemSet)  numOfItemSet = tmp.size();
-            freqItemSet.insert(tmp);
+            freqItemSet.push_back(make_pair(tmp, itemSupport[item]));
+
+            // freqItemSet.insert(tmp);
         }
         if(condHeaderTable.size())     FP_Growth(condHeaderTable, newFreqSet);
     }
 }
 
-void printFreqItemSet(vector<vector<int> > transaction, string output){
+void printFreqItemSet(vector<vector<int> > transaction, string output, int totalNum){
+    cout<<"numOfFreqsItemSet: "<<freqItemSet.size()<<endl;
+    // sort(freqItemSet.begin(), freqItemSet.end(), [](const pair<vector<int>, int> & a, const pair<vector<int>, int> & b){
+    //     if (a.first.size() != b.first.size()) {
+    //         return a.first.size() < b.first.size();
+    //     }
+    //     int i = 0;
+    //     for (i = 0; i < a.first.size(); ++i) {
+    //         if (a.first[i] != b.first[i])
+    //             break;
+    //     }
+    //     return a.first[i] < b.first[i];
+    // });
+
     ofstream outputFile(output);
-    for(auto freqItem=freqItemSet.begin(); freqItem!=freqItemSet.end(); freqItem++){
-        double total = 0;
-        // sort(freqItem.begin(),freqItem.end() )
-        int transaction_idx = 1;
-        for(auto item: transaction){
-            sort(item.begin(), item.end());
-            int tmp = 0;
-            for(int i = 0; i<item.size(); i++){
-                if(item[i] == (*freqItem)[tmp]){
-                    // cout<< transaction_idx <<"-> "<<(*freqItem)[tmp]<<" ";
-                    ++tmp;
-                    // i=-1;
-                }
-                if(tmp == (*freqItem).size()){
-                    ++total;
-                    break;
-                }
-            }
-            // cout<<endl;
-            transaction_idx++;
-        }
+    // for(auto freqItem=freqItemSet.begin(); freqItem!=freqItemSet.end(); freqItem++){
+    for(int i=0; i<freqItemSet.size(); i++){
+        // double total = 0;
+        // int transaction_idx = 1;
+        // for(auto item: transaction){
+        //     sort(item.begin(), item.end());
+        //     int tmp = 0;
+        //     for(int i = 0; i<item.size(); i++){
+        //         // if(item[i] == (*freqItem)[tmp]) ++tmp;
+        //         // if(tmp == (*freqItem).size()){
+        //         //     ++total;
+        //         //     break;
+        //         // }
+        //         if(item[i] == freqItem[tmp]) ++tmp;
+        //         if(tmp == freqItem.size()){
+        //             ++total;
+        //             break;
+        //         }
+        //     }
+        //     // cout<<endl;
+        //     transaction_idx++;
+        // }
         // cout<<endl;
-        double sup = total/totalNum;
-        for(int i = 0; i < (*freqItem).size(); i++){
-            if(i == (*freqItem).size()-1)  outputFile<<(*freqItem)[i];
-            else    outputFile<<(*freqItem)[i]<<",";
+        // double sup = total/totalNum;
+        // for(int i = 0; i < (*freqItem).size(); i++){
+        //     if(i == (*freqItem).size()-1)  outputFile<<(*freqItem)[i];
+        //     else    outputFile<<(*freqItem)[i]<<",";
+        // }
+        for(int j = 0; j < freqItemSet[i].first.size(); j++){
+            if(j ==  freqItemSet[i].first.size()-1)  outputFile<<freqItemSet[i].first[j];
+            else    outputFile<<freqItemSet[i].first[j]<<",";
         }
+
+        double sup = freqItemSet[i].second/totalNum;
         outputFile<<":"<<fixed<<setprecision(4)<<sup;
         outputFile<<endl;
         // system("pause");
@@ -264,15 +290,13 @@ void printFreqItemSet(vector<vector<int> > transaction, string output){
 int main(int argc, char* argv[])
 {
     if (argc != 4) cerr << "Usage: " << argv[0] << " <scale> <inputfile> <outputfile>" << endl;
-    memset(itemSupport, 0, 1000 * sizeof(itemSupport[0]));
-    memset(headerPos, -1, 1000 * sizeof(headerPos[0]));
+    memset(itemSupport, 0, sizeof(itemSupport));
+    memset(headerPos, -1, sizeof(headerPos));
     vector<vector<int> > transaction;
     vector<headNode*> headerTable;
     readFile(transaction, argv, headerTable);
     TreeNode* root = new TreeNode(-1);
-
-    //----------------remove number which less than min supportNum---------------------------------//
-    // cout<<"-------------------remove number which less than min supportNum--------------------"<<endl;
+    int totalNum = transaction.size();
     for(auto &row: transaction){
         stable_sort(row.begin(), row.end(), compare);
         for(auto it=row.begin(); it!=row.end(); it++){
@@ -280,15 +304,14 @@ int main(int argc, char* argv[])
                 row.erase(it, row.end());
                 break;
             }
-            // cout<<*it<<" ";
         }
-        // cout<<endl;
         buildTree(row.begin(),row.end(), headerTable,  root, 1);
     }
     // printTree(root, 1);
     // printHeaderTable(headerTable);
     vector<int> freqSet;
     FP_Growth(headerTable, freqSet);
-    printFreqItemSet(transaction, argv[3]);
+    cout<<"totalNum = "<<totalNum<<endl;
+    printFreqItemSet(transaction, argv[3], totalNum);
     return 0;
 }
